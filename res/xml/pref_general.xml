@@ -1,0 +1,35 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <EditTextPreference
+        android:key="d3_address_text"
+        android:title="@string/pref_d3_address_display_name"
+        android:defaultValue="@string/pref_default_IP_display_value"
+        android:selectAllOnFocus="true"
+        android:inputType="phone"
+        android:capitalize="words"
+        android:singleLine="true"
+        android:maxLines="1" />
+
+    <EditTextPreference
+        android:key="d3_video_stream_port_text"
+        android:title="@string/pref_d3_video_streamport_display_name"
+        android:defaultValue="@string/pref_default_video_streamport_display_value"
+        android:selectAllOnFocus="true"
+        android:inputType="phone"
+        android:capitalize="words"
+        android:singleLine="true"
+        android:maxLength="5"
+        android:maxLines="1" />
+
+    <EditTextPreference
+        android:key="d3_icd_stream_port_text"
+        android:title="@string/pref_d3_video_icdport_display_name"
+        android:defaultValue="@string/pref_default_video_icdport_display_value"
+        android:selectAllOnFocus="true"
+        android:inputType="phone"
+        android:capitalize="words"
+        android:singleLine="true"
+        android:maxLength="5"
+        android:maxLines="1" />
+
+</PreferenceScreen>

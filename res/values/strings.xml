@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">L3 Thermal Camera Viewer</string>
+    <string name="title_activity_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>    
+    <string name="action_settings">Settings</string>
+    <string name="pref_header_general">General</string>
+    <string name="pref_default_IP_display_value">10.0.2.1</string>
+    <string name="pref_d3_address_display_name">IP Address</string>
+    <string name="pref_default_video_streamport_display_value">8554</string>
+    <string name="pref_d3_video_streamport_display_name">Video Port</string>
+    <string name="pref_d3_video_icdport_display_name">ICD Port</string>
+    <string name="pref_default_video_icdport_display_value">8024</string>
+    <string name="button_play">Play</string>
+    <string name="button_stop">Stop</string>
+</resources>

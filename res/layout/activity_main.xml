@@ -11,6 +11,14 @@
     tools:context="com.d3engineering.ThermalCameraViewer.MainActivity" >
 
     <TextView
+        android:id="@+id/textview_version"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dip"
+        android:gravity="center_horizontal"
+        android:text="@string/version" />
+    
+    <TextView
         android:id="@+id/textview_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

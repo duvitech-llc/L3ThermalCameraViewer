@@ -32,6 +32,7 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.d3engineering.thermalviewer.MainActivity" />
         </activity>
+        
     </application>
-
+    
 </manifest>

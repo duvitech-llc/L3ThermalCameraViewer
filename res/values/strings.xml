@@ -14,4 +14,5 @@
     <string name="pref_default_video_icdport_display_value">8024</string>
     <string name="button_play">Play</string>
     <string name="button_stop">Stop</string>
+    <string name="version">Beta Version</string>
 </resources>

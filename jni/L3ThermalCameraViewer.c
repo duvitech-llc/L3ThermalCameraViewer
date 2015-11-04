@@ -156,7 +156,7 @@ static void *app_function (void *userdata) {
   g_main_context_push_thread_default(data->context);
 
   /* Build pipeline */
-  data->pipeline = gst_parse_launch("udpsrc multicast-group=192.168.1.107 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, sprop-parameter-sets=\\\"J2QAFKwrQLj/LwDxImo\\\\=\\\\,KO4fLA\\\\=\\\\=\\\"\", payload=96\" ! rtph264depay ! h264parse ! ffdec_h264 ! ffmpegcolorspace ! autovideosink", &error);
+  data->pipeline = gst_parse_launch("udpsrc caps=\"application/x-rtp,payload=96,encoding-name=H264 \" port=5000 ! queue ! rtph264depay ! ffdec_h264  ! ffmpegcolorspace ! autovideosink sync=false", &error);
   if (error) {
     gchar *message = g_strdup_printf("Unable to build pipeline: %s", error->message);
     g_clear_error (&error);

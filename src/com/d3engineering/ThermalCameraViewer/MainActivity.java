@@ -1,8 +1,22 @@
 package com.d3engineering.ThermalCameraViewer;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import android.app.Activity;
 import android.content.Intent;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -10,7 +24,9 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View.OnClickListener;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,6 +45,35 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
     private boolean is_playing_desired;   // Whether the user asked to go to PLAYING
 
+    Handler updateTCPHandler;
+    Thread	tcpThread = null;
+
+    private Button btnSendReticle;
+    private Spinner cbReticle;
+    private TCPClient mTcpClient;
+    
+    final Activity mainActivity = this;
+    
+    public static Byte[] ConvertPrimitiveToByte(byte[] bytesPrim) {
+        Byte[] bytes = new Byte[bytesPrim.length];
+
+        int i = 0;
+        for (byte b : bytesPrim) bytes[i++] = b; // Autoboxing
+
+        return bytes;
+    }
+
+    public static byte[] ConvertByteToPrimitives(List<Byte> byteList)
+    {
+        byte[] bytes = new byte[byteList.size()];
+
+        for(int i = 0; i < byteList.size(); i++) {
+            bytes[i] = byteList.get(i);
+        }
+
+        return bytes;
+    }
+    
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -43,11 +88,35 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 		
 		setContentView(R.layout.activity_main);
 
+		
 		ImageButton play = (ImageButton) this.findViewById(R.id.button_play);
         play.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
-                is_playing_desired = true;
-                nativePlay();
+            	
+            	WifiManager wm = (WifiManager) getSystemService(WIFI_SERVICE);
+            	//String ip = Formatter.formatIpAddress(wm.getConnectionInfo().getIpAddress());
+            	Byte[] myIPAddress = ConvertPrimitiveToByte(BigInteger.valueOf(wm.getConnectionInfo().getIpAddress()).toByteArray());
+            	List<Byte> byteList = Arrays.asList(myIPAddress); 
+            	
+            	// you must reverse the byte array before conversion. Use Apache's commons library
+            	Collections.reverse(byteList); 
+            	
+            	try{
+            		InetAddress myInetIP = InetAddress.getByAddress(ConvertByteToPrimitives(byteList));
+            		String myIP = myInetIP.getHostAddress();
+            		//sends the message to the server
+                    if (mTcpClient != null) {
+                        mTcpClient.sendMessage("IP="+myIP);
+                    }
+                    
+            		is_playing_desired = true;
+            		nativePlay();
+            		Toast.makeText(getApplicationContext(), "Starting Camera Stream", Toast.LENGTH_LONG).show(); 
+            	}catch(UnknownHostException uhe){
+            		is_playing_desired = false;
+                    Toast.makeText(getApplicationContext(), uhe.getMessage(), Toast.LENGTH_LONG).show();            		
+            	}
+            	
             }
         });
 
@@ -71,6 +140,47 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             Log.i ("GStreamer", "Activity created. There is no saved state, playing: false");
         }
 
+        // COMMAND BUTTON
+        btnSendReticle = (Button)findViewById(R.id.btnReticleSend);
+        btnSendReticle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // get selected reticle id and send to stack;
+            	int iReticle = cbReticle.getSelectedItemPosition();
+                Toast.makeText(getBaseContext(), "Sending Reticle Command " + iReticle, Toast.LENGTH_SHORT).show();
+                ByteBuffer reticlePacket = ByteBuffer.allocate(8);
+                // need to wrap this in a class
+                // length
+                reticlePacket.put(0,(byte)0x08);
+                reticlePacket.put(1,(byte)0x00);
+             
+                // command
+                reticlePacket.put(2,(byte)0x01);
+                reticlePacket.put(3,(byte)0x00);
+
+                // reticle
+                reticlePacket.put(4,(byte)iReticle);
+                reticlePacket.put(5,(byte)0x00);
+
+                // checksum
+                reticlePacket.put(6,(byte)0x00);
+                reticlePacket.put(7,(byte)0x00);
+                
+                if (mTcpClient != null) {
+                    mTcpClient.sendPacket(reticlePacket.array());
+                }
+            }
+        });
+
+        cbReticle = (Spinner)findViewById(R.id.cbReticle);
+        
+        // start TCP 
+        updateTCPHandler = new Handler();
+        mTcpClient = new TCPClient();
+        this.tcpThread = new Thread(mTcpClient);
+        this.tcpThread.start();
+        //new connectTask().execute("");
+        
         // Start with disabled buttons, until native code is initialized
         this.findViewById(R.id.button_play).setEnabled(false);
         this.findViewById(R.id.button_stop).setEnabled(false);
@@ -85,7 +195,24 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         outState.putBoolean("playing", is_playing_desired);
     }
 
+    @Override
+    protected void onStop() {
+		Log.d("MainActivity", "OnDestroy called");
+    	if (mTcpClient != null) {
+    		Log.d("MainActivity", "Sending OFF Message");
+            mTcpClient.sendMessage("OFFCAM");
+        }
+        super.onStop();
+    }
+
+    
+	@Override
     protected void onDestroy() {
+		Log.d("MainActivity", "OnDestroy called");
+    	if (mTcpClient != null) {
+    		Log.d("MainActivity", "Sending OFF Message");
+            mTcpClient.sendMessage("OFFCAM");
+        }
         nativeFinalize();
         super.onDestroy();
     }
@@ -166,4 +293,136 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         nativeSurfaceFinalize ();
     }
 
+    class updateUIThread implements Runnable {
+    	private String msg;
+    	public updateUIThread(String str){
+    		this.msg = str;
+    	}
+    	
+    	@Override
+    	public void run(){
+            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show(); 
+    	}
+    }
+    
+
+    //Declare the interface. The method messageReceived(String message) will must be implemented in the MyActivity
+    //class at on asynckTask doInBackground
+    public interface OnMessageReceived {
+        public void messageReceived(String message);
+    }
+    
+	public class TCPClient implements Runnable {
+	    private String serverMessage;
+	    public static final String SERVERIP = "10.0.2.1"; //D3 Stack IP Address
+	    public static final int SERVERPORT = 8024;
+	    private boolean mRun = false;
+	    OutputStream out;
+	    BufferedReader in;
+
+	    /**
+	     *  Constructor of the class. OnMessagedReceived listens for the messages received from server
+	     */
+	    public TCPClient() {
+	    }
+	    
+	    /**
+	     * Sends the message entered by client to the server
+	     * @param message text entered by client
+	     */
+	    public void sendMessage(String message){
+	        if (out != null) {
+	        	int length = message.getBytes().length;
+	        	try{
+	        		out.write(message.getBytes(), 0, length);
+	        		out.flush();
+	        	}catch(Exception ex){
+	        		updateTCPHandler.post(new updateUIThread("Error Sending Packet"));
+	        	}
+	        }else{
+	        	updateTCPHandler.post(new updateUIThread("NULL ouput stream"));
+	        }
+	        
+	    }
+
+	    public void sendPacket(byte[] packet){
+	        if (out != null) {
+	        	try{
+	        		out.write(packet, 0 , packet.length);
+	        		out.flush();
+	        	}catch(Exception ex){
+	        		updateTCPHandler.post(new updateUIThread("Error Sending Packet"));
+	        	}
+	        }else{
+	        	updateTCPHandler.post(new updateUIThread("NULL ouput stream"));
+	        }
+	    }
+	    
+	    public void stopClient(){
+	        mRun = false;
+	    }
+
+	    public void run() {
+
+	        mRun = true;
+
+	        try {
+	            //here you must put your computer's IP address.
+	            InetAddress serverAddr = InetAddress.getByName(SERVERIP);
+
+	            Log.e("TCP Client", "C: Connecting...");
+
+	            //create a socket to make the connection with the server
+	            Socket socket = new Socket(serverAddr, SERVERPORT);
+
+	            try {
+
+	                //send the message to the server
+	                out = socket.getOutputStream();
+
+	                Log.d("TCP Client", "C: Sent.");
+
+	                Log.d("TCP Client", "C: Done.");
+
+	                //receive the message which the server sends back
+	                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+	                Log.d("TCP Client", "C: waiting for response from server.");
+	                //in this while the client listens for the messages sent by the server
+	                while (mRun) {
+	                    serverMessage = in.readLine();
+	                    Log.d("TCP Client", "C: response received.");
+
+	                    if (serverMessage != null) {
+	                        //call the method messageReceived from MyActivity class
+
+	                        Log.d("TCP Client", "C: sending response to Main Activity");
+	                        updateTCPHandler.post(new updateUIThread("Sent Message to ICD"));
+	                        
+	                    }
+	                    serverMessage = null;
+
+	                }
+
+	                Log.e("RESPONSE FROM SERVER", "S: Received Message: '" + serverMessage + "'");
+
+	            } catch (Exception e) {
+
+	                Log.e("TCP", "S: Error", e);
+
+	            } finally {
+	                //the socket must be closed. It is not possible to reconnect to this socket
+	                // after it is closed, which means a new socket instance has to be created.
+	                socket.close();
+	            }
+
+	        } catch (Exception e) {
+
+	            Log.e("TCP", "C: Error", e);
+
+	        }
+
+	    }
+
+	}
 }

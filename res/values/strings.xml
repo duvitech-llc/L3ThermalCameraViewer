@@ -15,4 +15,15 @@
     <string name="button_play">Play</string>
     <string name="button_stop">Stop</string>
     <string name="version">Beta Version</string>
+    
+    <string-array name="spinner_reticle_entries">
+        <item>Reticle A</item>
+        <item>Reticle B</item>
+        <item>Reticle C</item>
+        <item>Reticle D</item>
+        <item>Reticle E</item>
+    </string-array>
+        <string name="icd_title">Camera Reticle Settings</string>
+        <string name="selectTag">"select: "</string>
+        <string name="btnSetReticleLabel">Set Reticle</string>
 </resources>
